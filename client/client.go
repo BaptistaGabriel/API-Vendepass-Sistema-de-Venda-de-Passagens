@@ -10,10 +10,10 @@ func receiveMessage(connection net.Conn) {
 	// Recebendo mensagem do servidor
 	buffer := make([]byte, 1024)
 
-	// Laendo resposta do servidor
+	// Lendo resposta do servidor
 	tam_bytes, err := connection.Read(buffer)
 	if err != nil {
-		fmt.Printf("Erro ao enviar mensagem para servidor %v\n", err)
+		fmt.Printf("Erro ao receber mensagem do servidor %v\n", err)
 		return
 	}
 
@@ -29,10 +29,10 @@ func returnMessage(connection net.Conn) {
 	message := "Mensagem para o servidor: Olá server!"
 	_, err := connection.Write([]byte(message))
 	if err != nil {
-		fmt.Printf("Erro ao enviar a mensagem %v\n", err)
+		fmt.Printf("Erro ao mandar a mensagem para o servidor %v\n", err)
 		return
 	}
-	fmt.Println("Mensagem enviada")
+	fmt.Println("Mensagem enviada para o servidor")
 }
 
 func communication(connection net.Conn) {

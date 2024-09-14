@@ -3,33 +3,38 @@ package main
 import (
 	"fmt"
 	"net"
+	"log"
 )
 
 func receiveMessage(connection net.Conn) {
+	// Recebendo mensagem do cliente
+
 	// Criando um buffer
 	buffer := make([]byte, 1024)
 
 	// Lendo dados do cliente
 	message, err := connection.Read(buffer)
 	if err != nil {
-		fmt.Printf("Erro em receber a mensagem %v\n", err)
+		fmt.Printf("Erro em receber a mensagem do cliente %v\n", err)
 		return
 	}
 
 	// Mostrando a mensagem
-	fmt.Printf("Mensagem recebida: %s\n", buffer[:message])
+	fmt.Printf("Mensagem recebida do cliente: %s\n", buffer[:message])
 
 }
 
 func returnMessage(connection net.Conn) {
 	// Mandando mensagem para o cliente
+
+	// Mensagem
 	data := []byte("Servidor respondendo...")
 	_, err := connection.Write(data)
 	if err != nil {
 		fmt.Printf("Erro ao mandar a resposta para o cliente %v\n", err)
 		return
 	}
-	fmt.Println("Resposta devolvida\n\n")
+	fmt.Println("Resposta devolvida para o cliente\n\n")
 }
 
 func communication(connection net.Conn) {
@@ -39,7 +44,23 @@ func communication(connection net.Conn) {
 	returnMessage(connection)
 }
 
+func getLocalIP() net.IP {
+	// Fazendo uma conexão não efetiva com o servidor DNS da Google 
+	connection, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil{
+		log.Fatal(err)
+	}
+	defer connection.Close()
+
+	localAddress := connection.LocalAddr().(*net.UDPAddr)
+
+	return localAddress.IP
+}
+
 func main() {
+
+	// Pegando o IP do servidor 
+	fmt.Printf("IP do servidor %v\n", getLocalIP())
 
 	// Criando o servidor na porta 8080
 	listener, err := net.Listen("tcp", ":8080")
