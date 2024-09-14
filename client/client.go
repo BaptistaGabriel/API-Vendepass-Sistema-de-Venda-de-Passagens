@@ -5,8 +5,7 @@ import (
 	"net"
 )
 
-func receberMensagem(connection net.Conn) {
-	defer connection.Close()
+func receiveMessage(connection net.Conn) {
 
 	// Recebendo mensagem do servidor
 	buffer := make([]byte, 1024)
@@ -24,15 +23,24 @@ func receberMensagem(connection net.Conn) {
 	fmt.Printf("Mensagem recebida do servidor: %v\n", message)
 }
 
-func mandarMensagem(connection net.Conn) {
+func returnMessage(connection net.Conn) {
+
 	// Mandando mensagem para o servidor
-	message := "Hello world!"
+	message := "Mensagem para o servidor: Olá server!"
 	_, err := connection.Write([]byte(message))
 	if err != nil {
 		fmt.Printf("Erro ao enviar a mensagem %v\n", err)
 		return
 	}
 	fmt.Println("Mensagem enviada")
+}
+
+func communication(connection net.Conn) {
+	defer connection.Close()
+
+	returnMessage(connection)
+	receiveMessage(connection)
+	
 }
 
 func main() {
@@ -46,6 +54,5 @@ func main() {
 
 	fmt.Println("Conectado ao servidor!")
 
-	go mandarMensagem(connection)
-	go receberMensagem(connection)
+	communication(connection)
 }

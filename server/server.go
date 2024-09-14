@@ -5,36 +5,38 @@ import (
 	"net"
 )
 
-func receberMensagem(connection net.Conn) {
-	defer connection.Close()
-	
+func receiveMessage(connection net.Conn) {
 	// Criando um buffer
 	buffer := make([]byte, 1024)
 
-	for {
-		// Lendo dados do cliente
-		message, err := connection.Read(buffer)
-		if err != nil{
-			fmt.Printf("Erro em receber a mensagem %v\n", err)
-			return
-		}
-
-		// Mostrando a mensagem
-		fmt.Printf("Mensagem recebida: %s\n", buffer[:message])
+	// Lendo dados do cliente
+	message, err := connection.Read(buffer)
+	if err != nil {
+		fmt.Printf("Erro em receber a mensagem %v\n", err)
+		return
 	}
+
+	// Mostrando a mensagem
+	fmt.Printf("Mensagem recebida: %s\n", buffer[:message])
+
 }
 
-func devolverMensagem(connection net.Conn) {
-	defer connection.Close()
-
+func returnMessage(connection net.Conn) {
 	// Mandando mensagem para o cliente
 	data := []byte("Servidor respondendo...")
 	_, err := connection.Write(data)
-	if err != nil{
+	if err != nil {
 		fmt.Printf("Erro ao mandar a resposta para o cliente %v\n", err)
 		return
 	}
-	fmt.Println("Resposta devolvida")
+	fmt.Println("Resposta devolvida\n\n")
+}
+
+func communication(connection net.Conn) {
+	defer connection.Close()
+
+	receiveMessage(connection)
+	returnMessage(connection)
 }
 
 func main() {
@@ -56,7 +58,8 @@ func main() {
 			fmt.Printf("Erro ao aceitar conexão: %v\n", err)
 			continue
 		}
-		go receberMensagem(connection)
-		go devolverMensagem(connection)
+		fmt.Println("Recebendo mensagen...\n")
+
+		go communication(connection)
 	}
 }
