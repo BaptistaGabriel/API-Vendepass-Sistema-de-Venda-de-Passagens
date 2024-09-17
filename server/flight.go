@@ -41,3 +41,61 @@ func CreateRoutes() [12]Flight {
 
     return flights
 }
+
+func ReserveSeat(flights [12]Flight, origin string, destination string, seat int) bool {
+	for i := 0; i < 12; i++ {
+		if flights[i].Origin == origin {
+			for j := 0; j < len(flights[i].Destination); j++ {
+				if flights[i].Destination[j] == destination {
+					if flights[i].Seats[seat].IsAvailable {
+						flights[i].Seats[seat].IsAvailable = false
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+func CancelSeat(flights [12]Flight, origin string, destination string, seat int) bool {
+	for i := 0; i < 12; i++ {
+		if flights[i].Origin == origin {
+			for j := 0; j < len(flights[i].Destination); j++ {
+				if flights[i].Destination[j] == destination {
+					if !flights[i].Seats[seat].IsAvailable {
+						flights[i].Seats[seat].IsAvailable = true
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+func GetAvailableSeats(flights [12]Flight, origin string, destination string) []int {
+	var availableSeats []int
+	for i := 0; i < 12; i++ {
+		if flights[i].Origin == origin {
+			for j := 0; j < len(flights[i].Destination); j++ {
+				if flights[i].Destination[j] == destination {
+					for k := 0; k < 10; k++ {
+						if flights[i].Seats[k].IsAvailable {
+							availableSeats = append(availableSeats, flights[i].Seats[k].Number)
+						}
+					}
+				}
+			}
+		}
+	}
+	return availableSeats
+}
+
+func ClearSeats(flights [12]Flight) {
+	for i := 0; i < 12; i++ {
+		for j := 0; j < 10; j++ {
+			flights[i].Seats[j].IsAvailable = true
+		}
+	}
+}
