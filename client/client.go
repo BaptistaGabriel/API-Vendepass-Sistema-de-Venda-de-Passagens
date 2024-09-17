@@ -12,13 +12,13 @@ func receiveMessage(connection net.Conn) string {
 	buffer := make([]byte, 1024)
 
 	// Lendo resposta do servidor
-	tam_bytes, err := connection.Read(buffer)
+	size_bytes, err := connection.Read(buffer)
 	if err != nil {
 		fmt.Printf("Erro ao receber mensagem do servidor %v\n", err)
 		return "-1"
 	}
 
-	message := string(buffer[:tam_bytes])
+	message := string(buffer[:size_bytes])
 
 	// Mostrando a mensagem
 	fmt.Printf("Mensagem recebida do servidor: %v\n", message)
@@ -50,6 +50,7 @@ func firstMenu(connection net.Conn) {
 		switch option {
 
 		case 1:
+			sendMessage(connection, strconv.Itoa(option))
 			var numberID int
 			fmt.Println("Número de identificação do cliente: ")
 			fmt.Scanln(&numberID)

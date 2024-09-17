@@ -6,25 +6,27 @@ import (
 	"log"
 )
 
-func receiveMessage(connection net.Conn) {
+func receiveMessage(connection net.Conn) string {
 	// Recebendo mensagem do cliente
 
 	// Criando um buffer
 	buffer := make([]byte, 1024)
 
 	// Lendo dados do cliente
-	message, err := connection.Read(buffer)
+	size_bytes, err := connection.Read(buffer)
 	if err != nil {
 		fmt.Printf("Erro em receber a mensagem do cliente %v\n", err)
-		return
+		return "-1"
 	}
 
-	// Mostrando a mensagem
-	fmt.Printf("Mensagem recebida do cliente: %s\n", buffer[:message])
+	message := string(buffer[:size_bytes])
 
+	// Mostrando a mensagem
+	fmt.Printf("Mensagem recebida do cliente: %s\n", message)
+	return message
 }
 
-func returnMessage(connection net.Conn) {
+func sendMessage(connection net.Conn) {
 	// Mandando mensagem para o cliente
 
 	// Mensagem
@@ -34,14 +36,28 @@ func returnMessage(connection net.Conn) {
 		fmt.Printf("Erro ao mandar a resposta para o cliente %v\n", err)
 		return
 	}
-	fmt.Println("Resposta devolvida para o cliente\n\n")
+	fmt.Println("Resposta devolvida para o cliente")
 }
 
-func communication(connection net.Conn) {
+func communication(connection net.Conn, mapClients *map[int] string) {
 	defer connection.Close()
 
+	exit := true
+	// Menu 1
+	for exit {		
+		option := receiveMessage(connection)
+		
+		// Fazer login
+		if option == "1" {
+			//
+		}
+		
+		
+		// Cadastrar
+	}
+
 	receiveMessage(connection)
-	returnMessage(connection)
+	sendMessage(connection)
 }
 
 func getLocalIP() net.IP {
@@ -59,6 +75,9 @@ func getLocalIP() net.IP {
 
 func main() {
 
+	// Criando lista de clientes
+	mapClients := make(map[int]string)
+	
 	// Pegando o IP do servidor 
 	fmt.Printf("IP do servidor %v\n", getLocalIP())
 
@@ -70,7 +89,7 @@ func main() {
 	}
 	defer listener.Close()
 
-	fmt.Println("Servidor funcionando na porta 8080...\n")
+	fmt.Println("Servidor funcionando na porta 8080...")
 
 	// Aceitando conexões em loop
 	for {
@@ -79,8 +98,8 @@ func main() {
 			fmt.Printf("Erro ao aceitar conexão: %v\n", err)
 			continue
 		}
-		fmt.Println("Recebendo mensagen...\n")
+		fmt.Println("Recebendo mensagen...")
 
-		go communication(connection)
+		go communication(connection, &mapClients)
 	}
 }
