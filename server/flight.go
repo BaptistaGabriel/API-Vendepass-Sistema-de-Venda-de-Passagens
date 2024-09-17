@@ -41,3 +41,19 @@ func CreateRoutes() [12]Flight {
 
     return flights
 }
+
+func ReserveSeat(flights [12]Flight, origin string, destination string, seat int) bool {
+	for i := 0; i < 12; i++ {
+		if flights[i].Origin == origin {
+			for j := 0; j < len(flights[i].Destination); j++ {
+				if flights[i].Destination[j] == destination {
+					if flights[i].Seats[seat].IsAvailable {
+						flights[i].Seats[seat].IsAvailable = false
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
