@@ -57,3 +57,19 @@ func ReserveSeat(flights [12]Flight, origin string, destination string, seat int
 	}
 	return false
 }
+
+func CancelSeat(flights [12]Flight, origin string, destination string, seat int) bool {
+	for i := 0; i < 12; i++ {
+		if flights[i].Origin == origin {
+			for j := 0; j < len(flights[i].Destination); j++ {
+				if flights[i].Destination[j] == destination {
+					if !flights[i].Seats[seat].IsAvailable {
+						flights[i].Seats[seat].IsAvailable = true
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
