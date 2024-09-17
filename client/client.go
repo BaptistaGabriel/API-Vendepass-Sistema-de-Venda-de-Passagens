@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"net"
-	 "strconv"
+	"strconv"
 )
 
 func receiveMessage(connection net.Conn) string {
@@ -26,10 +26,9 @@ func receiveMessage(connection net.Conn) string {
 	return message
 }
 
-func sendMessage(connection net.Conn, mensage string) {
+func sendMessage(connection net.Conn, message string) {
 
 	// Mandando mensagem para o servidor
-	message := mensage
 	_, err := connection.Write([]byte(message))
 	if err != nil {
 		fmt.Printf("Erro ao mandar a mensagem para o servidor %v\n", err)
@@ -38,30 +37,36 @@ func sendMessage(connection net.Conn, mensage string) {
 	fmt.Println("Mensagem enviada para o servidor")
 }
 
-func firstMenu() (string, int) {
+func firstMenu(connection net.Conn) {
 
 	var option int
-	
+
 	for {
 		fmt.Println("==========================")
 		fmt.Printf("\033[34m|     1. Fazer login     |\n|     2. Criar conta     |\033\n[0m")
 		fmt.Println("==========================")
 		fmt.Scanln(&option)
-		
+
 		switch option {
-		
+
 		case 1:
 			var numberID int
 			fmt.Println("Número de identificação do cliente: ")
 			fmt.Scanln(&numberID)
+			sendMessage(connection, strconv.Itoa(numberID))
+			confirmation := receiveMessage(connection)
+			// Retornar o nome do cliente
+			fmt.Printf("Olá, " + confirmation)
+			return
 
-			return "", numberID
-		
 		case 2:
 			var name string
 			fmt.Printf("Nome: ")
 			fmt.Scanln(&name)
-			return name, -1
+			sendMessage(connection, name)
+			numberID := receiveMessage(connection)
+			fmt.Printf("Número da sua conta: %v", numberID)
+
 		default:
 			fmt.Println("Opção inválida!")
 		}
@@ -69,7 +74,7 @@ func firstMenu() (string, int) {
 }
 
 func main() {
-	
+
 	// Conectando com o servidor
 	connection, err := net.Dial("tcp", ":8080")
 	if err != nil {
@@ -80,27 +85,6 @@ func main() {
 
 	fmt.Println("Conectado ao servidor!")
 
-	nameClient, numberID := firstMenu()
-
-	if numberID == -1 {
-		// Criar conta
-		sendMessage(connection, nameClient)
-		
-		numberID, _ := strconv.Atoi(receiveMessage(connection))
-		nameClient, numberID := firstMenu()
-
-	} else {
-		// Fazer login
-
-    numberIDstg := strconv.Itoa(numberID) 
-
-		sendMessage(connection, numberIDstg)
-		confirmation := receiveMessage(connection)
-		
-		// Mostrando a confirmação
-		fmt.Println(confirmation)
-
-		// Ir para o menu 2 ////////////////
-	}
+	firstMenu(connection)
 
 }
