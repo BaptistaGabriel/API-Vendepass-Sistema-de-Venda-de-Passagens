@@ -91,3 +91,11 @@ func GetAvailableSeats(flights [12]Flight, origin string, destination string) []
 	}
 	return availableSeats
 }
+
+func ClearSeats(flights [12]Flight) {
+	for i := 0; i < 12; i++ {
+		for j := 0; j < 10; j++ {
+			flights[i].Seats[j].IsAvailable = true
+		}
+	}
+}
