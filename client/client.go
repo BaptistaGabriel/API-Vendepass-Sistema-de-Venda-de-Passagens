@@ -3,150 +3,124 @@ package main
 import (
 	"fmt"
 	"net"
-	"log"
 	"strconv"
 )
 
 func receiveMessage(connection net.Conn) string {
-	// Recebendo mensagem do cliente
 
-	// Criando um buffer
+	// Recebendo mensagem do servidor
 	buffer := make([]byte, 1024)
 
-	// Lendo dados do cliente
+	// Lendo resposta do servidor
 	size_bytes, err := connection.Read(buffer)
 	if err != nil {
-		fmt.Printf("Erro em receber a mensagem do cliente %v\n", err)
+		fmt.Printf("Erro ao receber mensagem do servidor %v\n", err)
 		return "-1"
 	}
 
 	message := string(buffer[:size_bytes])
 
 	// Mostrando a mensagem
-	fmt.Printf("Mensagem recebida do cliente: %s\n", message)
+	fmt.Printf("Mensagem recebida do servidor: %v\n", message)
+
 	return message
 }
 
 func sendMessage(connection net.Conn, message string) {
-	// Mandando mensagem para o cliente
 
-	// Mensagem
-	data := []byte(message)
-	_, err := connection.Write(data)
+	// Mandando mensagem para o servidor
+	_, err := connection.Write([]byte(message))
 	if err != nil {
-		fmt.Printf("Erro ao mandar a resposta para o cliente %v\n", err)
+		fmt.Printf("Erro ao mandar a mensagem para o servidor %v\n", err)
 		return
 	}
-	fmt.Println("Resposta devolvida para o cliente")
+	fmt.Println("Mensagem enviada para o servidor")
 }
 
-func communication(connection net.Conn, mapClients map[int] string) {
-	defer connection.Close()
-	exit := true
+func firstMenu(connection net.Conn) {
 
-	// Menu 1
-	for exit {		
-		option := receiveMessage(connection)
-		
-		// Fazer login
-		if option == "1" {
-			numberID,_ := strconv.Atoi(receiveMessage(connection))
-			name, exists := mapClients[numberID]
-			fmt.Printf("NOMEEEE DO CLIENTE: %v", name)
-			if exists{
-				sendMessage(connection, name)
-				exit = false
-			} else {
-				sendMessage(connection, "-1")
-			}
-		// Cadastrar
-		} else if option == "2" {
-			name := receiveMessage(connection)
-			sendMessage(connection, strconv.Itoa(createClient(name, mapClients)))
-		} else {
-			// Retornar se o cliente cair no primeiro menu
-			if option != "0" {
-				fmt.Println("SE O CLIENTE CAIR NO PRIMEIRO MENU")
-				return
-			}
-		}
-	}
+	var option int
 
-	// Menu 2
 	for {
-		option := receiveMessage(connection)
-		if option == "1"{
-			fmt.Println("Finge que está comprando")
-			exit := true
-			for exit {
-				// Logica da compra aqui dentro
-				// Lembrar de colocar tudo no nome do cliente para saber quem comprou
-				fmt.Println("Finge que está mostrando as rotas aqui tá ligado")
-				exit = false
-			}
-		} else if option == "2" {
-			// Cancelar passagem mostrar tudo que ele comprou, só as passagens ativas
-			fmt.Println("Finge que está cancelando")
-		} else if option == "3" {
-			fmt.Println("Saindooooooo")
-			return
-		} else {
-			// Retornar se o cliente cair no primeiro menu
-			if option != "0" {
-				fmt.Println("Se o cliente cair!! No segundo menu claro")
+		fmt.Println("==========================")
+		fmt.Printf("\033[34m|     1. Fazer login     |\n|     2. Criar conta     |\033\n[0m")
+		fmt.Println("==========================")
+		fmt.Scanln(&option)
+		sendMessage(connection, strconv.Itoa(option))
+
+		switch option {
+
+		case 1:
+			// Fazer login
+
+			var numberID int
+			fmt.Println("Número de identificação do cliente: ")
+			fmt.Scanln(&numberID)
+			sendMessage(connection, strconv.Itoa(numberID))
+			message := receiveMessage(connection)
+			_, err := strconv.Atoi(message)
+			if err == nil {
+				fmt.Println("Usuário não cadastrado.")
+			} else {
+				// Retornar o nome do cliente
+				fmt.Printf("Olá, %v \n", message)
 				return
 			}
+
+		case 2:
+			// Cadastrar cliente
+			var name string
+			fmt.Printf("Nome: ")
+			fmt.Scanln(&name)
+			sendMessage(connection, name)
+			numberID := receiveMessage(connection)
+			fmt.Printf("Número da sua conta: %v \n", numberID)
+
+		default:
+			fmt.Println("Opção inválida!")
 		}
 	}
-	return
 }
 
-func getLocalIP() net.IP {
-	// Fazendo uma conexão não efetiva com o servidor DNS da Google 
-	connection, err := net.Dial("udp", "8.8.8.8:80")
-	if err != nil{
-		log.Fatal(err)
+func secondMenu(connection net.Conn, ) {
+	var option int
+
+	for {
+		fmt.Println("==========================")
+		fmt.Printf("\033[34m|  1. Comprar passagens  |\n|  2. Cancelar passagans |\n|  3. Sair               |\033\n[0m")
+		fmt.Println("==========================")
+		fmt.Scanln(&option)
+		sendMessage(connection, strconv.Itoa(option))
+
+		switch option {
+		case 1:
+			// Comprar passagens
+			fmt.Println("------------Comprando------------")
+		case 2:
+			fmt.Println("------------Cancelando------------")
+		case 3:
+			// Sair
+			fmt.Println("Obrigada por comprar com a gente!")
+			return
+		default:
+			fmt.Println("Opção inválida")
+		}
 	}
-	defer connection.Close()
-
-	localAddress := connection.LocalAddr().(*net.UDPAddr)
-
-	return localAddress.IP
-}
-
-func createClient(name string, mapClients map[int] string) int{
-	number := len(mapClients) + 1
-	mapClients[number] = name
-	return number
 }
 
 func main() {
 
-	// Criando lista de clientes
-	mapClients := make(map[int]string)
-	
-	// Pegando o IP do servidor 
-	fmt.Printf("IP do servidor %v\n", getLocalIP())
-
-	// Criando o servidor na porta 8080
-	listener, err := net.Listen("tcp", ":8080")
+	// Conectando com o servidor
+	connection, err := net.Dial("tcp", "172.16.103.8:8080")
 	if err != nil {
-		fmt.Printf("Erro ao iniciar o servidor: %v\n", err)
+		fmt.Printf("Erro ao conectar com o servidor %v\n", err)
 		return
 	}
-	defer listener.Close()
+	defer connection.Close()
 
-	fmt.Println("Servidor funcionando na porta 8080...")
+	fmt.Println("Conectado ao servidor!")
 
-	// Aceitando conexões em loop
-	for {
-		connection, err := listener.Accept()
-		if err != nil {
-			fmt.Printf("Erro ao aceitar conexão: %v\n", err)
-			continue
-		}
-		fmt.Println("Recebendo mensagen...")
+	firstMenu(connection)
+	secondMenu(connection)
 
-		go communication(connection, mapClients)
-	}
 }
