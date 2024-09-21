@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"log"
+	"strconv"
 )
 
 func receiveMessage(connection net.Conn) string {
@@ -26,11 +27,11 @@ func receiveMessage(connection net.Conn) string {
 	return message
 }
 
-func sendMessage(connection net.Conn) {
+func sendMessage(connection net.Conn, message string) {
 	// Mandando mensagem para o cliente
 
 	// Mensagem
-	data := []byte("Servidor respondendo...")
+	data := []byte(message)
 	_, err := connection.Write(data)
 	if err != nil {
 		fmt.Printf("Erro ao mandar a resposta para o cliente %v\n", err)
@@ -39,25 +40,65 @@ func sendMessage(connection net.Conn) {
 	fmt.Println("Resposta devolvida para o cliente")
 }
 
-func communication(connection net.Conn, mapClients *map[int] string) {
+func communication(connection net.Conn, mapClients map[int] string) {
 	defer connection.Close()
-
 	exit := true
+
 	// Menu 1
 	for exit {		
 		option := receiveMessage(connection)
 		
 		// Fazer login
 		if option == "1" {
-			//
-		}
-		
-		
+			numberID,_ := strconv.Atoi(receiveMessage(connection))
+			name, exists := mapClients[numberID]
+			fmt.Printf("NOMEEEE DO CLIENTE: %v", name)
+			if exists{
+				sendMessage(connection, name)
+				exit = false
+			} else {
+				sendMessage(connection, "-1")
+			}
 		// Cadastrar
+		} else if option == "2" {
+			name := receiveMessage(connection)
+			sendMessage(connection, strconv.Itoa(createClient(name, mapClients)))
+		} else {
+			// Retornar se o cliente cair no primeiro menu
+			if option != "0" {
+				fmt.Println("SE O CLIENTE CAIR NO PRIMEIRO MENU")
+				return
+			}
+		}
 	}
 
-	receiveMessage(connection)
-	sendMessage(connection)
+	// Menu 2
+	for {
+		option := receiveMessage(connection)
+		if option == "1"{
+			fmt.Println("Finge que está comprando")
+			exit := true
+			for exit {
+				// Logica da compra aqui dentro
+				// Lembrar de colocar tudo no nome do cliente para saber quem comprou
+				fmt.Println("Finge que está mostrando as rotas aqui tá ligado")
+				exit = false
+			}
+		} else if option == "2" {
+			// Cancelar passagem mostrar tudo que ele comprou, só as passagens ativas
+			fmt.Println("Finge que está cancelando")
+		} else if option == "3" {
+			fmt.Println("Saindooooooo")
+			return
+		} else {
+			// Retornar se o cliente cair no primeiro menu
+			if option != "0" {
+				fmt.Println("Se o cliente cair!! No segundo menu claro")
+				return
+			}
+		}
+	}
+	return
 }
 
 func getLocalIP() net.IP {
@@ -71,6 +112,12 @@ func getLocalIP() net.IP {
 	localAddress := connection.LocalAddr().(*net.UDPAddr)
 
 	return localAddress.IP
+}
+
+func createClient(name string, mapClients map[int] string) int{
+	number := len(mapClients) + 1
+	mapClients[number] = name
+	return number
 }
 
 func main() {
@@ -100,6 +147,6 @@ func main() {
 		}
 		fmt.Println("Recebendo mensagen...")
 
-		go communication(connection, &mapClients)
+		go communication(connection, mapClients)
 	}
 }
