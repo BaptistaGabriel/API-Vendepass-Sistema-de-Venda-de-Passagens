@@ -105,7 +105,7 @@ func CreateRoutes() []Flight {
     return flights
 }
 
-func SaveFlightsToFile(filename string, flights []Flight) {
+func SaveFlightsToFile(filename string, flights []Flight) string{
     // Garante que a pasta 'data' exista
     os.MkdirAll("data", os.ModePerm)
 
@@ -115,13 +115,15 @@ func SaveFlightsToFile(filename string, flights []Flight) {
     file, err := json.MarshalIndent(flights, "", "  ")
     if err != nil {
         fmt.Println("Erro ao converter para JSON:", err)
-        return
+        return "Erro"
     }
 
     err = os.WriteFile(filepath, file, 0644)
     if err != nil {
         fmt.Println("Erro ao salvar arquivo:", err)
+        return "Erro"
     }
+    return ""
 }
 
 // Função para carregar os voos e assentos de um arquivo JSON
