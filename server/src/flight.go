@@ -149,3 +149,13 @@ func LoadFlightsFromFile(filename string) ([]Flight, error) {
 
     return flights, nil
 }
+
+// Função para pegar as rotas
+func GetRoutes(flights []Flight) []string {
+    var routes []string
+    for _, flight := range flights {
+        route := fmt.Sprintf("%s -> %s", flight.Origin, flight.Destination)
+        routes = append(routes, route)
+    }
+    return routes
+}
