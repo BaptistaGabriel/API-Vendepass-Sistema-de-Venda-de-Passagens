@@ -40,7 +40,7 @@ func sendMessage(connection net.Conn, message string) {
 	fmt.Println("Resposta devolvida para o cliente")
 }
 
-func communication(connection net.Conn, mapClients map[int] string) {
+func communication(connection net.Conn, mapClients map[int] string, flights []Flight) {
 	defer connection.Close()
 	exit := true
 
@@ -79,6 +79,8 @@ func communication(connection net.Conn, mapClients map[int] string) {
 			fmt.Println("Finge que está comprando")
 			exit := true
 			for exit {
+				routes := GetRoutes(flights)
+				fmt.Println(routes)
 				// Logica da compra aqui dentro
 				// Lembrar de colocar tudo no nome do cliente para saber quem comprou
 				fmt.Println("Finge que está mostrando as rotas aqui tá ligado")
@@ -98,7 +100,6 @@ func communication(connection net.Conn, mapClients map[int] string) {
 			}
 		}
 	}
-	return
 }
 
 func getLocalIP() net.IP {
@@ -124,6 +125,9 @@ func main() {
 
 	// Criando lista de clientes
 	mapClients := make(map[int]string)
+
+	// Criando nome do arquivo das rotas
+	var flight_file string
 	
 	// Pegando o IP do servidor 
 	fmt.Printf("IP do servidor %v\n", getLocalIP())
@@ -138,6 +142,15 @@ func main() {
 
 	fmt.Println("Servidor funcionando na porta 8080...")
 
+	// Criando e salvando as rotas em um arquivo
+	flight := CreateRoutes()
+	message := SaveFlightsToFile(flight_file, flight)
+	
+	// Se der erro
+	if message != "" {
+		return
+	}
+
 	// Aceitando conexões em loop
 	for {
 		connection, err := listener.Accept()
@@ -147,6 +160,6 @@ func main() {
 		}
 		fmt.Println("Recebendo mensagen...")
 
-		go communication(connection, mapClients)
+		go communication(connection, mapClients, flight)
 	}
 }
