@@ -3,162 +3,139 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net"
-	"os"
 	"strconv"
 )
 
-func receiveMessage(connection net.Conn) string {
-	// Recebendo mensagem do cliente
-
-	// Criando um buffer
-	buffer := make([]byte, 1024)
-
-	// Lendo dados do cliente
-	size_bytes, err := connection.Read(buffer)
-	if err != nil {
-		fmt.Printf("Erro em receber a mensagem do cliente %v\n", err)
-		return "-1"
-	}
-
-	message := string(buffer[:size_bytes])
-
-	// Mostrando a mensagem
-	fmt.Printf("Mensagem recebida do cliente: %s\n", message)
-	return message
+type Message struct {
+	Type    string `json:"type"`
+	Content interface{} `json:"content"`
 }
 
-func sendMessage(connection net.Conn, message string) {
-	// Mandando mensagem para o cliente
+func receiveMessage(connection net.Conn) Message {
+	var msg Message
+	decoder := json.NewDecoder(connection)
+	if err := decoder.Decode(&msg); err != nil {
+		fmt.Printf("Erro em receber a mensagem do cliente %v\n", err)
+		return Message{Type: "error"}
+	}
+	fmt.Printf("Mensagem recebida do cliente: %+v\n", msg)
+	return msg
+}
 
-	// Mensagem
-	data := []byte(message)
-	_, err := connection.Write(data)
-	if err != nil {
+func sendMessage(connection net.Conn, msg Message) {
+	encoder := json.NewEncoder(connection)
+	if err := encoder.Encode(msg); err != nil {
 		fmt.Printf("Erro ao mandar a resposta para o cliente %v\n", err)
 		return
 	}
 	fmt.Println("Resposta devolvida para o cliente")
 }
 
-func sendJSON(connection net.Conn, list []string){	
-	// Converter para json
-	json_flight, err := json.Marshal(list)
-	if err != nil {
-		fmt.Printf("Erro ao converter para JSON: %v\n", err)
-		return 
-	}
-	
-	// Mandando um json para o cliente
-	_, err = connection.Write(json_flight)
-	if err != nil {
-		fmt.Printf("Erro ao enviar o json para o cliente %v\n", err)
-		return
-	}
-	fmt.Println("Lista enviada ao cliente!")
+func sendJSON(connection net.Conn, list []string) {
+	msg := Message{Type: "list", Content: list}
+	sendMessage(connection, msg)
 }
 
-func communication(connection net.Conn, flights []Flight) {
+func communication(connection net.Conn, mapClients map[int]string, flights []Flight) {
 	defer connection.Close()
 	exit := true
-
 	var numberID int
 
-	mapClients := getClients()
-
 	// Menu 1
-	for exit {		
+	for exit {
+		optionMsg := receiveMessage(connection)
+		if optionMsg.Type != "action" {
+			continue
+		}
 
-		option := receiveMessage(connection)
-		
-		// Fazer login
-		if option == "1" {
-			numberID,_ = strconv.Atoi(receiveMessage(connection))
+		option := optionMsg.Content.(float64) // JSON decodifica números como float64
+		if int(option) == 1 {
+			numberIDMsg := receiveMessage(connection)
+			numberID, _ = strconv.Atoi(numberIDMsg.Content.(string))
 			name, exists := mapClients[numberID]
-			fmt.Printf("NOMEEEE DO CLIENTE: %v", name)
-			if exists{
-				sendMessage(connection, name)
+
+			if exists {
+				sendMessage(connection, Message{Type: "response", Content: name})
 				exit = false
 			} else {
-				sendMessage(connection, "-1")
+				sendMessage(connection, Message{Type: "response", Content: "-1"})
 			}
-		// Cadastrar
-		} else if option == "2" {
-			name := receiveMessage(connection)
-			sendMessage(connection, strconv.Itoa(createClient(name, mapClients)))
-			saveClient(mapClients)
-			} else {
-			// Retornar se o cliente cair no primeiro menu
-			if option != "0" {
-				fmt.Println("SE O CLIENTE CAIR NO PRIMEIRO MENU")
-				return
-			}
+		} else if int(option) == 2 {
+			nameMsg := receiveMessage(connection)
+			clientID := createClient(nameMsg.Content.(string), mapClients)
+			sendMessage(connection, Message{Type: "response", Content: strconv.Itoa(clientID)})
+		} else if int(option) == 0 {
+			break
 		}
 	}
 
 	// Menu 2
 	for {
-		option := receiveMessage(connection)
-		if option == "1"{
-			/////////////////// PROTEÇÃO CONTRA CAIR O CLIENTE ////////////////
+	 optionMsg := receiveMessage(connection)
+		if optionMsg.Type != "action" {
+			continue
+		}
+
+		option := int(optionMsg.Content.(float64))
+		if option == 1 {
 			fmt.Println("Finge que está comprando")
 			exit := true
 			for exit {
 				routes := GetRoutes(flights)
 				sendJSON(connection, routes)
-				
-				route_number, _ := strconv.Atoi(receiveMessage(connection))
-				client_flight := flights[route_number]
-				seats := GetSeats(client_flight)
 
-				var list_seats[] string 
+				routeNumberMsg := receiveMessage(connection)
+				routeNumber, _ := strconv.Atoi(routeNumberMsg.Content.(string))
+				clientFlight := flights[routeNumber]
+				seats := GetSeats(clientFlight)
 
+				var listSeats []string
 				for _, seat := range seats {
-					item := strconv.FormatBool(seat.IsReserved)
-					list_seats = append(list_seats, item)
+					listSeats = append(listSeats, strconv.FormatBool(seat.IsReserved))
 				}
 
-				sendJSON(connection, list_seats)
-				seat_number, _ := strconv.Atoi(receiveMessage(connection))
-				if (ReserveSeat(flights, route_number, seat_number, strconv.Itoa(numberID))) {
-					sendMessage(connection, "Assento comprado com sucesso!")
+				sendJSON(connection, listSeats)
+
+				seatNumberMsg := receiveMessage(connection)
+				seatNumber, _ := strconv.Atoi(seatNumberMsg.Content.(string))
+				if ReserveSeat(flights, routeNumber, seatNumber, strconv.Itoa(numberID)) {
+					sendMessage(connection, Message{Type: "response", Content: "Assento comprado com sucesso!"})
 				} else {
-					sendMessage(connection, "Erro ao comprar o assento")
+					sendMessage(connection, Message{Type: "response", Content: "Erro ao comprar o assento"})
 				}
 
-				err := SaveFlightsToFile("flights", flights)
+				err := SaveFlightsToFile("flights.json", flights)
 				if err != "" {
 					fmt.Println("Erro ao salvar a operação!")
 				}
 
-				option = receiveMessage(connection)
-				if option == "2" {
-					exit = false 
+				optionExitMsg := receiveMessage(connection)
+				if optionExitMsg.Type != "action" {
+					continue
 				}
-
+				optionExit := int(optionExitMsg.Content.(float64))
+				if optionExit == 2 {
+					exit = false
+				}
 			}
-		} else if option == "2" {
-			// Cancelar passagem mostrar tudo que ele comprou, só as passagens ativas
+		} else if option == 2 {
 			fmt.Println("Finge que está cancelando")
-		} else if option == "3" {
+		} else if option == 3 {
 			fmt.Println("Saindooooooo")
 			return
-		} else {
-			// Retornar se o cliente cair no primeiro menu
-			if option != "0" {
-				fmt.Println("Se o cliente cair!! No segundo menu claro")
-				return
-			}
+		} else if option != 0 {
+			fmt.Println("Se o cliente cair!! No segundo menu claro")
+			return
 		}
 	}
 }
 
 func getLocalIP() net.IP {
-	// Fazendo uma conexão não efetiva com o servidor DNS da Google 
+	// Fazendo uma conexão não efetiva com o servidor DNS da Google
 	connection, err := net.Dial("udp", "8.8.8.8:80")
-	if err != nil{
+	if err != nil {
 		log.Fatal(err)
 	}
 	defer connection.Close()
@@ -168,65 +145,69 @@ func getLocalIP() net.IP {
 	return localAddress.IP
 }
 
-func createClient(name string, mapClients map[int] string) int{
+func createClient(name string, mapClients map[int]string) int {
 	number := len(mapClients) + 1
 	mapClients[number] = name
 	return number
 }
 
-func getClients() map[int]string {
-	
-	// Criando lista de clientes
-	mapClients := make(map[int]string)
-
-	file, err := os.Create("data/clients.json")
+/*func createFileClients(){
+	_, err := os.Create("data/clients.json")
 	if err != nil {
 		fmt.Println("Erro ao abrir o arquivo dos clientes")
-		return nil
+		return
 	}
-
-	bytes, err := io.ReadAll(file)
-	if err != nil {
-		fmt.Println("Erro ao ler o arquivo dos clientes")
-		return nil
-	}
-
-	err = json.Unmarshal(bytes, &mapClients)
-	if err != nil {
-		fmt.Println("Erro listar os clientes")
-		return nil
-	}
-	defer file.Close()
-
-	return mapClients
+	return
 }
 
-func saveClient(mapClients map[int] string) {
-	// Garante que a pasta 'data' exista
-	os.MkdirAll("data", os.ModePerm)	
+func saveClients(name string, mapClients map[int] string) int{
+
+	numberID := createClient(name, mapClients)
 
 	file, err := json.MarshalIndent(mapClients, "", "  ")
 	if err != nil {
 		fmt.Println("Erro ao converter para JSON:", err)
-		return
+		return -1
 	}
-	
+
 	err = os.WriteFile("data/clients.json", file, 0644)
 	if err != nil {
-		fmt.Println("Erro ao salvar arquivo: ", err)
-		return
+		fmt.Println("Erro ao escrever no arquivo: ", err)
+		return -1
 	}
 
-	return
+	return numberID
 }
 
+func loadFromClientsFIle(numberID int, mapClients map[int] string) (string, bool) {
+	file, err := os.Open("data/clients.json")
+	if err != nil {
+		return "-1", false
+	}
+	defer file.Close()
+
+	bytes, err := io.ReadAll(file)
+	if err != nil {
+		return "-1", false
+	}
+
+	err = json.Unmarshal(bytes, &mapClients)
+	if err != nil {
+		return "-1", false
+	}
+	name, exists := mapClients[numberID]
+
+	return name, exists
+
+} */
+
 func main() {
-	
-	// Pegando o IP do servidor 
+
+	// Pegando o IP do servidor
 	fmt.Printf("IP do servidor %v\n", getLocalIP())
 
 	// Criando o servidor na porta 8080
-	listener, err := net.Listen("tcp", ":8080")
+	listener, err := net.Listen("tcp", ":7777")
 	if err != nil {
 		fmt.Printf("Erro ao iniciar o servidor: %v\n", err)
 		return
@@ -239,7 +220,7 @@ func main() {
 	// Nome do arquivo
 	flight := CreateRoutes()
 	message := SaveFlightsToFile("flights.json", flight)
-	
+
 	// Se der erro
 	if message != "" {
 		return
@@ -251,6 +232,8 @@ func main() {
 		return
 	}
 
+	mapClients := make(map[int]string)
+
 	// Aceitando conexões em loop
 	for {
 		connection, err := listener.Accept()
@@ -260,6 +243,6 @@ func main() {
 		}
 		fmt.Println("Recebendo mensagen...")
 
-		go communication(connection, flight)
+		go communication(connection, mapClients, flight)
 	}
 }
