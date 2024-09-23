@@ -121,7 +121,34 @@ func communication(connection net.Conn, mapClients map[int]string, flights []Fli
 				}
 			}
 		} else if option == 2 {
-			fmt.Println("Finge que está cancelando")
+			
+			var client_flights[] string
+			// Cancelar passagem mostrar tudo que ele comprou, só as passagens ativas
+			flights, err := LoadFlightsFromFile("flights.json")
+			if err != nil {
+				fmt.Println("Erro ao carregar vôos")
+			}
+			for index, flight := range flights {
+				list_seat := flight.Seats
+				for index_seat, seat := range list_seat {
+					if seat.CustomerID == strconv.Itoa(numberID) {
+						clientString := strconv.Itoa(index) + " ..." + " Origem " + flight.Origin + " Destino " + flight.Destination + " Assento: " + strconv.Itoa(index_seat)
+						client_flights = append(client_flights, clientString)
+					}
+				}
+			}
+			sendJSON(connection, client_flights)
+			numberFlight,_ := strconv.Atoi(receiveMessage(connection))
+			numberSeat, _ := strconv.Atoi(receiveMessage(connection))
+			
+			confirmation := CancelSeat(flights, numberFlight, numberSeat)
+			if !confirmation {
+				fmt.Println("Erro ao cancelar vôo")
+			}
+			if SaveFlightsToFile("flights.json", flights) != "" {
+				fmt.Println("Erro ao salvar arquivo")
+			}
+			
 		} else if option == 3 {
 			fmt.Println("Saindooooooo")
 			return
