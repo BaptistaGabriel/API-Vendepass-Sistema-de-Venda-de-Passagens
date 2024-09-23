@@ -1,2 +1,3 @@
 
-server/src/data/flight_file.json
+server/src/data/flights.json
+server/src/data/clients.json
