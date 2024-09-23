@@ -1,9 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
-	"net"
+	"io"
 	"log"
+	"net"
+	"os"
 	"strconv"
 )
 
@@ -40,17 +43,39 @@ func sendMessage(connection net.Conn, message string) {
 	fmt.Println("Resposta devolvida para o cliente")
 }
 
-func communication(connection net.Conn, mapClients map[int] string, flights []Flight) {
+func sendJSON(connection net.Conn, list []string){	
+	// Converter para json
+	json_flight, err := json.Marshal(list)
+	if err != nil {
+		fmt.Printf("Erro ao converter para JSON: %v\n", err)
+		return 
+	}
+	
+	// Mandando um json para o cliente
+	_, err = connection.Write(json_flight)
+	if err != nil {
+		fmt.Printf("Erro ao enviar o json para o cliente %v\n", err)
+		return
+	}
+	fmt.Println("Lista enviada ao cliente!")
+}
+
+func communication(connection net.Conn, flights []Flight) {
 	defer connection.Close()
 	exit := true
 
+	var numberID int
+
+	mapClients := getClients()
+
 	// Menu 1
 	for exit {		
+
 		option := receiveMessage(connection)
 		
 		// Fazer login
 		if option == "1" {
-			numberID,_ := strconv.Atoi(receiveMessage(connection))
+			numberID,_ = strconv.Atoi(receiveMessage(connection))
 			name, exists := mapClients[numberID]
 			fmt.Printf("NOMEEEE DO CLIENTE: %v", name)
 			if exists{
@@ -63,7 +88,8 @@ func communication(connection net.Conn, mapClients map[int] string, flights []Fl
 		} else if option == "2" {
 			name := receiveMessage(connection)
 			sendMessage(connection, strconv.Itoa(createClient(name, mapClients)))
-		} else {
+			saveClient(mapClients)
+			} else {
 			// Retornar se o cliente cair no primeiro menu
 			if option != "0" {
 				fmt.Println("SE O CLIENTE CAIR NO PRIMEIRO MENU")
@@ -76,15 +102,42 @@ func communication(connection net.Conn, mapClients map[int] string, flights []Fl
 	for {
 		option := receiveMessage(connection)
 		if option == "1"{
+			/////////////////// PROTEÇÃO CONTRA CAIR O CLIENTE ////////////////
 			fmt.Println("Finge que está comprando")
 			exit := true
 			for exit {
 				routes := GetRoutes(flights)
-				fmt.Println(routes)
-				// Logica da compra aqui dentro
-				// Lembrar de colocar tudo no nome do cliente para saber quem comprou
-				fmt.Println("Finge que está mostrando as rotas aqui tá ligado")
-				exit = false
+				sendJSON(connection, routes)
+				
+				route_number, _ := strconv.Atoi(receiveMessage(connection))
+				client_flight := flights[route_number]
+				seats := GetSeats(client_flight)
+
+				var list_seats[] string 
+
+				for _, seat := range seats {
+					item := strconv.FormatBool(seat.IsReserved)
+					list_seats = append(list_seats, item)
+				}
+
+				sendJSON(connection, list_seats)
+				seat_number, _ := strconv.Atoi(receiveMessage(connection))
+				if (ReserveSeat(flights, route_number, seat_number, strconv.Itoa(numberID))) {
+					sendMessage(connection, "Assento comprado com sucesso!")
+				} else {
+					sendMessage(connection, "Erro ao comprar o assento")
+				}
+
+				err := SaveFlightsToFile("flights", flights)
+				if err != "" {
+					fmt.Println("Erro ao salvar a operação!")
+				}
+
+				option = receiveMessage(connection)
+				if option == "2" {
+					exit = false 
+				}
+
 			}
 		} else if option == "2" {
 			// Cancelar passagem mostrar tudo que ele comprou, só as passagens ativas
@@ -121,13 +174,53 @@ func createClient(name string, mapClients map[int] string) int{
 	return number
 }
 
-func main() {
-
+func getClients() map[int]string {
+	
 	// Criando lista de clientes
 	mapClients := make(map[int]string)
 
-	// Criando nome do arquivo das rotas
-	var flight_file string
+	file, err := os.Create("data/clients.json")
+	if err != nil {
+		fmt.Println("Erro ao abrir o arquivo dos clientes")
+		return nil
+	}
+
+	bytes, err := io.ReadAll(file)
+	if err != nil {
+		fmt.Println("Erro ao ler o arquivo dos clientes")
+		return nil
+	}
+
+	err = json.Unmarshal(bytes, &mapClients)
+	if err != nil {
+		fmt.Println("Erro listar os clientes")
+		return nil
+	}
+	defer file.Close()
+
+	return mapClients
+}
+
+func saveClient(mapClients map[int] string) {
+	// Garante que a pasta 'data' exista
+	os.MkdirAll("data", os.ModePerm)	
+
+	file, err := json.MarshalIndent(mapClients, "", "  ")
+	if err != nil {
+		fmt.Println("Erro ao converter para JSON:", err)
+		return
+	}
+	
+	err = os.WriteFile("data/clients.json", file, 0644)
+	if err != nil {
+		fmt.Println("Erro ao salvar arquivo: ", err)
+		return
+	}
+
+	return
+}
+
+func main() {
 	
 	// Pegando o IP do servidor 
 	fmt.Printf("IP do servidor %v\n", getLocalIP())
@@ -143,11 +236,18 @@ func main() {
 	fmt.Println("Servidor funcionando na porta 8080...")
 
 	// Criando e salvando as rotas em um arquivo
+	// Nome do arquivo
 	flight := CreateRoutes()
-	message := SaveFlightsToFile(flight_file, flight)
+	message := SaveFlightsToFile("flights.json", flight)
 	
 	// Se der erro
 	if message != "" {
+		return
+	}
+
+	flight, err = LoadFlightsFromFile("flights.json")
+	if err != nil {
+		fmt.Printf("Erro ao carregar rotas do arquivo %v:", err)
 		return
 	}
 
@@ -160,6 +260,6 @@ func main() {
 		}
 		fmt.Println("Recebendo mensagen...")
 
-		go communication(connection, mapClients, flight)
+		go communication(connection, flight)
 	}
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"strconv"
@@ -35,6 +36,25 @@ func sendMessage(connection net.Conn, message string) {
 		return
 	}
 	fmt.Println("Mensagem enviada para o servidor")
+}
+
+func receiveJSON(connection net.Conn) [] string{
+	buffer := make([]byte, 1024)
+	var list [] string
+
+	size_bytes, err := connection.Read(buffer)
+	if err != nil {
+		fmt.Printf("Erro ao receber o json: %v\n", err)
+		return list
+	}
+
+	
+	err = json.Unmarshal(buffer[:size_bytes], &list)
+	if err != nil {
+		fmt.Printf("Erro ao converter o JSON para lista: %v\n", err)
+		return list
+	}
+	return list
 }
 
 func firstMenu(connection net.Conn) {
@@ -93,9 +113,42 @@ func secondMenu(connection net.Conn, ) {
 		sendMessage(connection, strconv.Itoa(option))
 
 		switch option {
-		case 1:
-			// Comprar passagens
-			fmt.Println("------------Comprando------------")
+		case 1: 
+			exit := true
+			for exit {
+				// Comprar passagens
+				list := receiveJSON(connection)
+				for index, item := range list {
+					fmt.Printf("%d.........%s\n", index + 1, item)
+				}
+				var route_number int
+				fmt.Scanln(&route_number)
+				sendMessage(connection, strconv.Itoa(route_number))
+				list_seats := receiveJSON(connection)
+				for index, seat := range list_seats {
+					if seat == "false" {
+						fmt.Printf("%d......... Livre\n", index + 1)
+					} else {
+						fmt.Printf("%d......... Ocupado\n", index + 1)
+					}
+				}
+
+				var choose_seat int
+
+				fmt.Scanln(&choose_seat)
+				sendMessage(connection, strconv.Itoa(choose_seat - 1))
+				fmt.Println(receiveMessage(connection))
+
+				fmt.Println("===================================")
+				fmt.Printf("\033[34m|     1. Comprar outra passagem     |\n|     2. Sair                      |\033\n[0m")
+				fmt.Println("===================================")
+				fmt.Scanln(&option)
+				sendMessage(connection, strconv.Itoa(option))
+				if option == 2 {
+					exit = false
+				}
+			}
+
 		case 2:
 			fmt.Println("------------Cancelando------------")
 		case 3:
@@ -111,7 +164,7 @@ func secondMenu(connection net.Conn, ) {
 func main() {
 
 	// Conectando com o servidor
-	connection, err := net.Dial("tcp", "172.16.103.8:8080")
+	connection, err := net.Dial("tcp", "192.168.1.3:8080")
 	if err != nil {
 		fmt.Printf("Erro ao conectar com o servidor %v\n", err)
 		return
