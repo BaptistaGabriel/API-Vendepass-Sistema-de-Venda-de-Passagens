@@ -43,14 +43,14 @@ func communication(connection net.Conn, mapClients map[int]string, flights []Fli
 	exit := true
 	var numberID int
 
-	// Menu 1
+	// Menu 1 - Login ou Cadastro
 	for exit {
 		optionMsg := receiveMessage(connection)
 		if optionMsg.Type != "action" {
 			continue
 		}
 
-		option := optionMsg.Content.(float64) // JSON decodifica números como float64
+		option := optionMsg.Content.(float64)
 		if int(option) == 1 {
 			numberIDMsg := receiveMessage(connection)
 			numberID, _ = strconv.Atoi(numberIDMsg.Content.(string))
@@ -71,94 +71,94 @@ func communication(connection net.Conn, mapClients map[int]string, flights []Fli
 		}
 	}
 
-	// Menu 2
+	// Menu 2 - Compras e Cancelamentos
 	for {
-	 optionMsg := receiveMessage(connection)
+		optionMsg := receiveMessage(connection)
 		if optionMsg.Type != "action" {
 			continue
 		}
 
 		option := int(optionMsg.Content.(float64))
 		if option == 1 {
-			fmt.Println("Finge que está comprando")
-			exit := true
-			for exit {
-				routes := GetRoutes(flights)
-				sendJSON(connection, routes)
+			// Compra de assentos
+			routes := GetRoutes(flights)
+			sendJSON(connection, routes)
 
-				routeNumberMsg := receiveMessage(connection)
-				routeNumber, _ := strconv.Atoi(routeNumberMsg.Content.(string))
-				clientFlight := flights[routeNumber]
-				seats := GetSeats(clientFlight)
+			routeNumberMsg := receiveMessage(connection)
+			routeNumber, _ := strconv.Atoi(routeNumberMsg.Content.(string))
+			clientFlight := flights[routeNumber]
+			seats := GetSeats(clientFlight)
 
-				var listSeats []string
-				for _, seat := range seats {
-					listSeats = append(listSeats, strconv.FormatBool(seat.IsReserved))
-				}
-
-				sendJSON(connection, listSeats)
-
-				seatNumberMsg := receiveMessage(connection)
-				seatNumber, _ := strconv.Atoi(seatNumberMsg.Content.(string))
-				if ReserveSeat(flights, routeNumber, seatNumber, strconv.Itoa(numberID)) {
-					sendMessage(connection, Message{Type: "response", Content: "Assento comprado com sucesso!"})
-				} else {
-					sendMessage(connection, Message{Type: "response", Content: "Erro ao comprar o assento"})
-				}
-
-				err := SaveFlightsToFile("flights.json", flights)
-				if err != "" {
-					fmt.Println("Erro ao salvar a operação!")
-				}
-
-				optionExitMsg := receiveMessage(connection)
-				if optionExitMsg.Type != "action" {
-					continue
-				}
-				optionExit := int(optionExitMsg.Content.(float64))
-				if optionExit == 2 {
-					exit = false
-				}
+			var listSeats []string
+			for _, seat := range seats {
+				listSeats = append(listSeats, strconv.FormatBool(seat.IsReserved))
 			}
+
+			sendJSON(connection, listSeats)
+
+			seatNumberMsg := receiveMessage(connection)
+			seatNumber, _ := strconv.Atoi(seatNumberMsg.Content.(string))
+			if ReserveSeat(flights, routeNumber, seatNumber, strconv.Itoa(numberID)) {
+				sendMessage(connection, Message{Type: "response", Content: "Assento comprado com sucesso!"})
+			} else {
+				sendMessage(connection, Message{Type: "response", Content: "Erro ao comprar o assento"})
+			}
+
+			err := SaveFlightsToFile("flights.json", flights)
+			if err != "" {
+				fmt.Println("Erro ao salvar a operação!")
+			}
+
 		} else if option == 2 {
-			
-			var client_flights[] string
-			// Cancelar passagem mostrar tudo que ele comprou, só as passagens ativas
+			// Cancelamento de passagens
+			var clientFlights []string
+
+			// Carregar voos atualizados
 			flights, err := LoadFlightsFromFile("flights.json")
 			if err != nil {
 				fmt.Println("Erro ao carregar vôos")
+				sendMessage(connection, Message{Type: "error", Content: "Erro ao carregar vôos"})
+				continue
 			}
+
+			// Mostrar as reservas do cliente
 			for index, flight := range flights {
-				list_seat := flight.Seats
-				for index_seat, seat := range list_seat {
+				for seatIndex, seat := range flight.Seats {
 					if seat.CustomerID == strconv.Itoa(numberID) {
-						clientString := strconv.Itoa(index) + " ..." + " Origem " + flight.Origin + " Destino " + flight.Destination + " Assento: " + strconv.Itoa(index_seat)
-						client_flights = append(client_flights, clientString)
+						clientFlight := fmt.Sprintf("%d - %s -> %s - Assento: %d", index, flight.Origin, flight.Destination, seatIndex)
+						clientFlights = append(clientFlights, clientFlight)
 					}
 				}
 			}
-			sendJSON(connection, client_flights)
-			numberFlight,_ := strconv.Atoi(receiveMessage(connection))
-			numberSeat, _ := strconv.Atoi(receiveMessage(connection))
-			
-			confirmation := CancelSeat(flights, numberFlight, numberSeat)
-			if !confirmation {
-				fmt.Println("Erro ao cancelar vôo")
+
+			sendJSON(connection, clientFlights)
+
+			// Selecionar voo e assento para cancelamento
+			flightIndexMsg := receiveMessage(connection)
+			flightIndex, _ := strconv.Atoi(flightIndexMsg.Content.(string))
+
+			seatIndexMsg := receiveMessage(connection)
+			seatIndex, _ := strconv.Atoi(seatIndexMsg.Content.(string))
+
+			flights, success := CancelSeat(flights, flightIndex, seatIndex)
+			if success {
+				sendMessage(connection, Message{Type: "response", Content: "Passagem cancelada com sucesso!"})
+			} else {
+				sendMessage(connection, Message{Type: "response", Content: "Erro ao cancelar a passagem"})
 			}
+
 			if SaveFlightsToFile("flights.json", flights) != "" {
 				fmt.Println("Erro ao salvar arquivo")
 			}
-			
+
 		} else if option == 3 {
-			fmt.Println("Saindooooooo")
+			fmt.Println("Cliente saiu.")
 			return
-		} else if option != 0 {
-			fmt.Println("Se o cliente cair!! No segundo menu claro")
-			return
+		} else {
+			fmt.Println("Opção inválida!")
 		}
 	}
 }
-
 func getLocalIP() net.IP {
 	// Fazendo uma conexão não efetiva com o servidor DNS da Google
 	connection, err := net.Dial("udp", "8.8.8.8:80")

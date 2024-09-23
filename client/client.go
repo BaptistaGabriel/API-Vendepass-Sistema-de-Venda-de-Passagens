@@ -74,7 +74,7 @@ func secondMenu(connection net.Conn) {
 	var option int
 	for {
 		fmt.Println("==========================")
-		fmt.Printf("\033[34m|  1. Comprar passagens  |\n|  2. Cancelar passagens |\n|  3. Sair               |\033[0m\n")
+		fmt.Printf("\033[34m|     1. Comprar passagem     |\n|     2. Cancelar passagem    |\n|     3. Sair                |\033[0m\n")
 		fmt.Println("==========================")
 		fmt.Scanln(&option)
 
@@ -82,61 +82,65 @@ func secondMenu(connection net.Conn) {
 
 		switch option {
 		case 1:
-			exit := true
-			for exit {
-				listMsg := receiveMessage(connection)
-				if listMsg.Type != "list" {
-					continue
-				}
-				list := listMsg.Content.([]interface{})
-				for index, item := range list {
-					fmt.Printf("%d.........%s\n", index+1, item)
-				}
-				var routeNumber int
-				fmt.Scanln(&routeNumber)
-				sendMessage(connection, Message{Type: "action", Content: strconv.Itoa(routeNumber - 1)})
-
-				listSeatsMsg := receiveMessage(connection)
-				if listSeatsMsg.Type != "list" {
-					continue
-				}
-				listSeats := listSeatsMsg.Content.([]interface{})
-				for index, seat := range listSeats {
-					if seat.(string) == "false" {
-						fmt.Printf("%d......... Livre\n", index+1)
-					} else {
-						fmt.Printf("%d......... Ocupado\n", index+1)
-					}
-				}
-
-				var chooseSeat int
-				fmt.Scanln(&chooseSeat)
-				sendMessage(connection, Message{Type: "action", Content: strconv.Itoa(chooseSeat - 1)})
-				fmt.Println(receiveMessage(connection).Content)
-
-				fmt.Println("===================================")
-				fmt.Printf("\033[34m|     1. Comprar outra passagem     |\n|     2. Sair                      |\033[0m\n")
-				fmt.Println("===================================")
-				fmt.Scanln(&option)
-				sendMessage(connection, Message{Type: "action", Content: option})
-				if option == 2 {
-					exit = false
-				}
+			// Comprar passagem
+			routesMsg := receiveMessage(connection)
+			fmt.Println("Rotas disponíveis: ")
+			for i, route := range routesMsg.Content.([]interface{}) {
+				fmt.Printf("%d. %v\n", i, route)
 			}
+
+			var routeNumber int
+			fmt.Println("Escolha o número da rota: ")
+			fmt.Scanln(&routeNumber)
+			sendMessage(connection, Message{Type: "action", Content: strconv.Itoa(routeNumber)})
+
+			seatsMsg := receiveMessage(connection)
+			fmt.Println("Assentos disponíveis: ")
+			for i, seat := range seatsMsg.Content.([]interface{}) {
+				fmt.Printf("Assento %d - Reservado: %v\n", i, seat)
+			}
+
+			var seatNumber int
+			fmt.Println("Escolha o número do assento: ")
+			fmt.Scanln(&seatNumber)
+			sendMessage(connection, Message{Type: "action", Content: strconv.Itoa(seatNumber)})
+
+			responseMsg := receiveMessage(connection)
+			fmt.Println(responseMsg.Content)
+
 		case 2:
-			fmt.Println("------------Cancelando------------")
+			// Cancelar passagem
+			clientFlightsMsg := receiveMessage(connection)
+			fmt.Println("Suas passagens: ")
+			for i, flight := range clientFlightsMsg.Content.([]interface{}) {
+				fmt.Printf("%d. %v\n", i, flight)
+			}
+
+			var flightIndex, seatIndex int
+			fmt.Println("Escolha o número do voo para cancelar: ")
+			fmt.Scanln(&flightIndex)
+			sendMessage(connection, Message{Type: "action", Content: strconv.Itoa(flightIndex)})
+
+			fmt.Println("Escolha o número do assento para cancelar: ")
+			fmt.Scanln(&seatIndex)
+			sendMessage(connection, Message{Type: "action", Content: strconv.Itoa(seatIndex)})
+
+			responseMsg := receiveMessage(connection)
+			fmt.Println(responseMsg.Content)
+
 		case 3:
-			fmt.Println("Obrigada por comprar com a gente!")
+			// Sair
+			fmt.Println("Saindo...")
 			return
 		default:
-			fmt.Println("Opção inválida")
-			return
+			fmt.Println("Opção inválida!")
 		}
 	}
 }
 
+
 func main() {
-	connection, err := net.Dial("tcp", "172.16.103.12:7777")
+	connection, err := net.Dial("tcp", "localhost:7777")
 	if err != nil {
 		fmt.Println(err)
 		return
