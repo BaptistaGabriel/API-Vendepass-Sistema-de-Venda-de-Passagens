@@ -73,9 +73,9 @@ func firstMenu(connection net.Conn) {
 func secondMenu(connection net.Conn) {
 	var option int
 	for {
-		fmt.Println("==========================")
-		fmt.Printf("\033[34m|     1. Comprar passagem     |\n|     2. Cancelar passagem    |\n|     3. Sair                |\033[0m\n")
-		fmt.Println("==========================")
+		fmt.Println("============================")
+		fmt.Printf("\033[34m|    1. Comprar passagem   |\n|    2. Cancelar passagem  |\n|    3. Sair               |\033[0m\n")
+		fmt.Println("============================")
 		fmt.Scanln(&option)
 
 		sendMessage(connection, Message{Type: "action", Content: option})
@@ -137,7 +137,6 @@ func secondMenu(connection net.Conn) {
 		}
 	}
 }
-
 
 func main() {
 	connection, err := net.Dial("tcp", "localhost:7777")

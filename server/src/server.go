@@ -18,6 +18,7 @@ func receiveMessage(connection net.Conn) Message {
 	decoder := json.NewDecoder(connection)
 	if err := decoder.Decode(&msg); err != nil {
 		fmt.Printf("Erro em receber a mensagem do cliente %v\n", err)
+		fmt.Println(err)
 		return Message{Type: "error"}
 	}
 	fmt.Printf("Mensagem recebida do cliente: %+v\n", msg)
@@ -66,13 +67,15 @@ func communication(connection net.Conn, mapClients map[int]string, flights []Fli
 			nameMsg := receiveMessage(connection)
 			clientID := createClient(nameMsg.Content.(string), mapClients)
 			sendMessage(connection, Message{Type: "response", Content: strconv.Itoa(clientID)})
-		} else if int(option) == 0 {
-			break
+
+		} else {
+			return
 		}
 	}
 
 	// Menu 2 - Compras e Cancelamentos
-	for {
+	exit = true
+	for exit {
 		optionMsg := receiveMessage(connection)
 		if optionMsg.Type != "action" {
 			continue
@@ -155,7 +158,7 @@ func communication(connection net.Conn, mapClients map[int]string, flights []Fli
 			fmt.Println("Cliente saiu.")
 			return
 		} else {
-			fmt.Println("Opção inválida!")
+			return
 		}
 	}
 }
@@ -177,56 +180,6 @@ func createClient(name string, mapClients map[int]string) int {
 	mapClients[number] = name
 	return number
 }
-
-/*func createFileClients(){
-	_, err := os.Create("data/clients.json")
-	if err != nil {
-		fmt.Println("Erro ao abrir o arquivo dos clientes")
-		return
-	}
-	return
-}
-
-func saveClients(name string, mapClients map[int] string) int{
-
-	numberID := createClient(name, mapClients)
-
-	file, err := json.MarshalIndent(mapClients, "", "  ")
-	if err != nil {
-		fmt.Println("Erro ao converter para JSON:", err)
-		return -1
-	}
-
-	err = os.WriteFile("data/clients.json", file, 0644)
-	if err != nil {
-		fmt.Println("Erro ao escrever no arquivo: ", err)
-		return -1
-	}
-
-	return numberID
-}
-
-func loadFromClientsFIle(numberID int, mapClients map[int] string) (string, bool) {
-	file, err := os.Open("data/clients.json")
-	if err != nil {
-		return "-1", false
-	}
-	defer file.Close()
-
-	bytes, err := io.ReadAll(file)
-	if err != nil {
-		return "-1", false
-	}
-
-	err = json.Unmarshal(bytes, &mapClients)
-	if err != nil {
-		return "-1", false
-	}
-	name, exists := mapClients[numberID]
-
-	return name, exists
-
-} */
 
 func main() {
 
