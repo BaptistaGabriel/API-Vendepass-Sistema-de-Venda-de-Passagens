@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"io"
 	"net"
 	"strconv"
 )
@@ -17,8 +18,11 @@ func receiveMessage(connection net.Conn) Message {
 	var msg Message
 	decoder := json.NewDecoder(connection)
 	if err := decoder.Decode(&msg); err != nil {
+		if err == io.EOF {
+			fmt.Println("Cliente desconectado.")
+			return Message{Type: "disconnected"}
+		}
 		fmt.Printf("Erro em receber a mensagem do cliente %v\n", err)
-		fmt.Println(err)
 		return Message{Type: "error"}
 	}
 	fmt.Printf("Mensagem recebida do cliente: %+v\n", msg)
@@ -47,6 +51,9 @@ func communication(connection net.Conn, mapClients map[int]string, flights []Fli
 	// Menu 1 - Login ou Cadastro
 	for exit {
 		optionMsg := receiveMessage(connection)
+		if optionMsg.Type == "disconnected" {
+			return // Saia se o cliente desconectar
+		}
 		if optionMsg.Type != "action" {
 			continue
 		}
@@ -54,6 +61,9 @@ func communication(connection net.Conn, mapClients map[int]string, flights []Fli
 		option := optionMsg.Content.(float64)
 		if int(option) == 1 {
 			numberIDMsg := receiveMessage(connection)
+			if numberIDMsg.Type == "disconnected" {
+				return
+			}
 			numberID, _ = strconv.Atoi(numberIDMsg.Content.(string))
 			name, exists := mapClients[numberID]
 
@@ -65,9 +75,11 @@ func communication(connection net.Conn, mapClients map[int]string, flights []Fli
 			}
 		} else if int(option) == 2 {
 			nameMsg := receiveMessage(connection)
+			if nameMsg.Type == "disconnected" {
+				return
+			}
 			clientID := createClient(nameMsg.Content.(string), mapClients)
 			sendMessage(connection, Message{Type: "response", Content: strconv.Itoa(clientID)})
-
 		} else {
 			return
 		}
@@ -77,6 +89,9 @@ func communication(connection net.Conn, mapClients map[int]string, flights []Fli
 	exit = true
 	for exit {
 		optionMsg := receiveMessage(connection)
+		if optionMsg.Type == "disconnected" {
+			return
+		}
 		if optionMsg.Type != "action" {
 			continue
 		}
@@ -88,6 +103,9 @@ func communication(connection net.Conn, mapClients map[int]string, flights []Fli
 			sendJSON(connection, routes)
 
 			routeNumberMsg := receiveMessage(connection)
+			if routeNumberMsg.Type == "disconnected" {
+				return
+			}
 			routeNumber, _ := strconv.Atoi(routeNumberMsg.Content.(string))
 			clientFlight := flights[routeNumber]
 			seats := GetSeats(clientFlight)
@@ -100,6 +118,9 @@ func communication(connection net.Conn, mapClients map[int]string, flights []Fli
 			sendJSON(connection, listSeats)
 
 			seatNumberMsg := receiveMessage(connection)
+			if seatNumberMsg.Type == "disconnected" {
+				return
+			}
 			seatNumber, _ := strconv.Atoi(seatNumberMsg.Content.(string))
 			if ReserveSeat(flights, routeNumber, seatNumber, strconv.Itoa(numberID)) {
 				sendMessage(connection, Message{Type: "response", Content: "Assento comprado com sucesso!"})
@@ -138,9 +159,15 @@ func communication(connection net.Conn, mapClients map[int]string, flights []Fli
 
 			// Selecionar voo e assento para cancelamento
 			flightIndexMsg := receiveMessage(connection)
+			if flightIndexMsg.Type == "disconnected" {
+				return
+			}
 			flightIndex, _ := strconv.Atoi(flightIndexMsg.Content.(string))
 
 			seatIndexMsg := receiveMessage(connection)
+			if seatIndexMsg.Type == "disconnected" {
+				return
+			}
 			seatIndex, _ := strconv.Atoi(seatIndexMsg.Content.(string))
 
 			flights, success := CancelSeat(flights, flightIndex, seatIndex)
@@ -187,7 +214,7 @@ func main() {
 	fmt.Printf("IP do servidor %v\n", getLocalIP())
 
 	// Criando o servidor na porta 8080
-	listener, err := net.Listen("tcp", ":7777")
+	listener, err := net.Listen("tcp", ":8080")
 	if err != nil {
 		fmt.Printf("Erro ao iniciar o servidor: %v\n", err)
 		return
